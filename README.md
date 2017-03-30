@@ -1,4 +1,4 @@
-# Price Downloaders Projects
+# Equity Histroical Data Download Projects
 
 These are samples of price downloaders for various finanacial data sources.
 
