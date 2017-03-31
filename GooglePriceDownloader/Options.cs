@@ -1,14 +1,13 @@
 ﻿using CommandLine;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace YahooPriceDownloader
+namespace GooglePriceDownloader
 {
-    public class Options
+    class Options
     {
         /*
          *  -e "4/1/2017" -b "1/1/1970" -s "AAPL NUGT DUST CSCO IBM C NFLX FSLR GE SPY A AA" -t 1
@@ -26,7 +25,7 @@ namespace YahooPriceDownloader
         public string SymbolFile { get; set; }
 
 
-        [Option('d', "dir", Required = false,Default ="Data", HelpText = "Folder to put donwloads into. (Will be created if does not exist.)")]
+        [Option('d', "dir", Required = false, Default = "Data", HelpText = "Folder to put donwloads into. (Will be created if does not exist.)")]
         public string DataFolder { get; set; }
 
         [Option('e', "enddate", Required = false, HelpText = "End date of data download. (Default current date)")]
@@ -38,11 +37,8 @@ namespace YahooPriceDownloader
         [Option('r', "sort", Required = false, HelpText = "Sort data by date.", Default = true)]
         public bool DoSort { get; set; }
 
-        [Option('t', "threads", Required = false, HelpText = "Number of threads for downloading.", Default = 5)]
+        [Option('t', "threads", Required = false, HelpText = "Number of threads for downloading.", Default = 1)]
         public int Threads { get; set; }
-
-        [Option('a', "adjust", Required = false, HelpText = "Back adjust all data based on Adjusted Close.", Default = false)]
-        public bool BackAdjust { get; set; }
 
 
         public Options()

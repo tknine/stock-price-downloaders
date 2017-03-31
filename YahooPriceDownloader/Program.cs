@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using System.Net;
 using System.Net.Http;
 using System.IO;
-using MoreLinq;
 using System.Threading;
 using CommandLine;
 using LumenWorks.Framework.IO.Csv;
@@ -52,7 +51,23 @@ namespace YahooPriceDownloader
                 {
                     csv.ReadToEnd();
 
-                    csv.Records.Reverse();
+                    if (options.DoSort)
+                    {
+                        csv.Records.Reverse();
+                    }
+                    
+                    if (options.BackAdjust)
+                    {
+                        for (var i=0; i < csv.Records.Count; i++)
+                        {
+                            var adjustedClose = double.Parse(csv.Records[i][6]);
+                            var ratio = adjustedClose / double.Parse(csv.Records[i][4]);
+                            csv.Records[i][1] = (ratio * double.Parse(csv.Records[i][1])).ToString();
+                            csv.Records[i][2] = (ratio * double.Parse(csv.Records[i][2])).ToString();
+                            csv.Records[i][3] = (ratio * double.Parse(csv.Records[i][3])).ToString();
+                            csv.Records[i][4] = (ratio * double.Parse(csv.Records[i][4])).ToString();
+                        }
+                    }
 
                     //output all the lines of the download using a Join of the fields sub-array to write out each line.
                     File.WriteAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, options.DataFolder, $"{symbol}.csv"), csv.Records.Select(r => string.Join(",", r)));
@@ -99,6 +114,16 @@ namespace YahooPriceDownloader
             }
 
             options = result.MapResult((Options opts) => opts, null);
+
+            if (options.BackAdjust)
+            {
+                Console.Write("Yahoo back adjusting does not provide data that matches other sources.  Continue (Y/N)");
+
+                if (!string.Equals(Console.ReadLine(), "Y", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    return;
+                }
+            }
             
 
             //create the data directory

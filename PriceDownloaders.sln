@@ -10,6 +10,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GooglePriceDownloader", "GooglePriceDownloader\GooglePriceDownloader.csproj", "{6D290D5E-6CB7-4C08-A923-2477B4D34850}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +22,10 @@ Global
 		{02569E3E-9F07-457D-8102-FB90B9A260C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{02569E3E-9F07-457D-8102-FB90B9A260C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{02569E3E-9F07-457D-8102-FB90B9A260C8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6D290D5E-6CB7-4C08-A923-2477B4D34850}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6D290D5E-6CB7-4C08-A923-2477B4D34850}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6D290D5E-6CB7-4C08-A923-2477B4D34850}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6D290D5E-6CB7-4C08-A923-2477B4D34850}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
