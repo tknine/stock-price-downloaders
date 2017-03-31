@@ -36,7 +36,12 @@ YahooPriceDownloader.exe --help
 
 ## Google Historical Data
 
-The google data is a good source for US price back adjusted data.  The only catch is that google implements a request limit based on time.  This limit equates to about 1 request per second, so any data downloading on the finance API requires following this rule.  Read about the limits here: [Google API](https://developers.google.com/analytics/devguides/reporting/core/v3/limits-quotas)
+The google data is a good source for US price back adjusted data.  
+
+#### Request Limits
+One catch is that google implements a request limit based on time.  This limit equates to about 1 request per second, so any data downloading on the finance API requires following this rule.  Read about the limits here: [Google API](https://developers.google.com/analytics/devguides/reporting/core/v3/limits-quotas)
+
+As a result of these request limits, the downloader excutes request on a single thread to prevent an IP lockout period that would occur by letting too many requests happen per second.
 
 #### Index Symbols
 Google does not seem allow the downloading of index symbols.
