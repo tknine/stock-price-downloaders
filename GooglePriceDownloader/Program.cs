@@ -13,10 +13,29 @@ using LumenWorks.Framework.IO.Csv;
 namespace GooglePriceDownloader
 {
 
-    class Program
+    class GoogleDailyHistoricalDownloader
     {
         private static SemaphoreSlim semaphore;
         private static Options options;
+
+
+        /// <summary>
+        /// Provide date comparer for the data from files or from server.  Assumes date is in first index.
+        /// </summary>
+        private class CsvDateComparer : IEqualityComparer<string[]>
+        {
+
+            public bool Equals(string[] x, string[] y)
+            {
+                return x[0] == y[0];
+            }
+
+            public int GetHashCode(string[] obj)
+            {
+                return obj[0].GetHashCode();
+            }
+        }
+
 
         private static Action<string> yahooDownloader = (string symbol) =>
         {
@@ -29,22 +48,6 @@ namespace GooglePriceDownloader
             {
                 semaphore.Wait();
             }
-
-
-            var wc = new WebClient();
-
-            //wc.Headers.Add("Host: www.google.com");
-            wc.Headers.Add("User-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64; rv:52.0) Gecko/20100101 Firefox/52.0");
-
-            wc.Headers.Add("Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-            wc.Headers.Add("Accept-Language: en-US,en;q=0.5");
-            wc.Headers.Add("Accept-Encoding: gzip, deflate, br");
-            //wc.Headers.Add("Upgrade-Insecure-Requests: 1");
-            //wc.Headers.Add("Cookie: SC=RV=:ED=us; _ga=GA1.2-2.1711606738.1490908757; SID=eQQCyqFI-YKMzKlKgXFEZkLNG6yxauW86b9mGnXwcFUbWpKH6nsNhEycHG2xN8VhmvxYKQ.; HSID=A-tD5dX2OkCu66-GP; SSID=Ajn9ybJbH9rpC2x6S; APISID=9oH6vfAg30ZCJi1F/AtUfI58QCVXAKEBDq; SAPISID=nJtm4lioCFp58MqV/AhnXQYte7AjOeikX1; NID=100=WbBDR2bmGDW9KMbd8HRdFKp6KgEi_ocmmIzYBH3Yo_gDRiNzslZ_tyo91PjvAJ7fl1azkaNTfKr5k_5FdKo6gYTf8MXoCLZ2AUP40h9pWknCZ1u6BD0IXV5Rb4ra7uXX-8xaV8goVCLmiovU1cSEOE_n8m4buEe9sFUFb6uxWC9416DPn4SlePR2O1POiqc41k1g_E22Cn-fXpoKfl8RU20nglPs5CAIKXP7Ol6CCqyTHpD85YlVfPenH9mlK0OBjKkL-BXEyQ; OGPC=5061451-23:5061821-2:; OGP=-5061451:-5061821:; S=quotestreamer=iK18ADsNdxH5pQHkMMs1ug; __gads=ID=c6482686470e3fc3:T=1490946422:S=ALNI_MbujP2YQOyr0-pt1i5jPenAjWL-ew; GOOGLE_ABUSE_EXEMPTION=ID=4293d9a89f3ffa5a:TM=1490947388:C=r:IP=2600:8801:c400:3430:4175:322a:5dd6:e0f0-:S=APGng0v2v5-MfDAtdz6Zkho9TCdHCbIeqQ");
-            //wc.Headers.Add("Connection: keep-alive");
-
-
-            //http://www.google.com/finance/historical?q=AAPL&startdate=01-01-1980&enddate=04-01-2017&output=csv&ei=DXvdWOndDcrUjAHOsLHACg
 
             try
             {
@@ -61,68 +64,25 @@ namespace GooglePriceDownloader
                 }
 
                 var stillDownloading = true;
-               
 
-                var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, options.DataFolder, $"{symbol}.csv");
+                //bucket to hold all the records until all read looping is complete
+                var csvBuilder = new List<string[]>();
 
-                //remove any existing file as we are appending data to the file
-                File.Delete(filePath);
-
-
+                //loop through date ranges as only a certain number of days can be requested at a time.
                 while (stillDownloading)
                 {
+                    requestCount++;
 
                     Console.WriteLine($"...Downloading: {symbol} - {beginDate.ToShortDateString()} to {endDate.ToShortDateString()}");
-                    string data = null;
 
-                    //try
-                    //{
-                        //get the new data
-                        data = wc.DownloadString(
-                            new Uri($@"http://www.google.com/finance/historical?q={symbol}&startdate={beginDate.ToString("MM-dd-yyyy")}&enddate={endDate.ToString("MM-dd-yyyy")}&output=csv"));
+                    var url = BuildUrl(symbol, endDate, beginDate);
 
-                    //}
-                    //catch (Exception exception)
-                    //{
-                    //    //get the new data
-                    //    data = wc.DownloadString(
-                    //        new Uri($@"http://www.google.com/finance/historical?q=NYSEMKT%3A{symbol}&startdate={beginDate.ToString("MM-dd-yyyy")}&enddate={endDate.ToString("MM-dd-yyyy")}&output=csv"));
-
-
-                    //}
-
-                    requestCount++;
+                    string data = DownloadCsv(url);
 
                     //add the new data to the record
                     using (var csv = new CachedCsvReader(data.ToStreamReader(), true))
                     {
-                        csv.ReadToEnd();
-
-                        if (options.DoSort)
-                        {
-                            csv.Records.Reverse();
-                        }
-
-                        for (int i = 0; i < csv.Records.Count; i++)
-                        {
-                            string[] dateParts = (csv.Records[i][0]).Split("-".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-                            var year = int.Parse(dateParts[2]);
-
-                            if (year < 70)
-                            {
-                                year += 2000;
-                            }
-                            else
-                            {
-                                year += 1900;
-                            }
-
-                            dateParts[2] = year.ToString();
-                            csv.Records[i][0] = DateTime.Parse(string.Join("-", dateParts)).ToString("MM/dd/yyyy");
-                        }
-
-                        //output all the lines of the download using a Join of the fields sub-array to write out each line.
-                        File.AppendAllLines(filePath, csv.Records.Select(r => string.Join(",", r)));
+                        csvBuilder = ReadStreamData(csvBuilder, csv);
                     }
 
                     //move the date pointers down the history
@@ -135,12 +95,20 @@ namespace GooglePriceDownloader
                         endDate = options.EndDate;
                     }
 
-                    //if the end date has dropeed below the requested begin date, we are done
+                    //if the end date has dropped below the requested begin date, we are done
                     if (beginDate > options.EndDate)
                     {
                         stillDownloading = false;
                     }
                 }
+
+
+                if (options.DoSort)
+                {
+                    csvBuilder = csvBuilder.OrderBy(s => DateTime.Parse(s[0])).ToList();
+                }
+
+                SaveDataStream(symbol, csvBuilder);
 
                 Console.WriteLine($"Completed: {symbol}");
             }
@@ -161,6 +129,109 @@ namespace GooglePriceDownloader
                 }
             }
         };
+
+        private static string DownloadCsv(Uri url)
+        {
+            var wc = new WebClient();
+
+            //wc.Headers.Add("Host: www.google.com");
+            wc.Headers.Add("User-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64; rv:52.0) Gecko/20100101 Firefox/52.0");
+
+            wc.Headers.Add("Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+            wc.Headers.Add("Accept-Language: en-US,en;q=0.5");
+            wc.Headers.Add("Accept-Encoding: gzip, deflate, br");
+
+            //get the new data
+            string data = wc.DownloadString(url);
+            return data;
+        }
+
+        private static List<string[]> ReadStreamData(List<string[]> csvBuilder, CachedCsvReader csv)
+        {
+            csv.ReadToEnd();
+
+
+            for (int i = 0; i < csv.Records.Count; i++)
+            {
+                string[] dateParts = (csv.Records[i][0]).Split("-".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+                var year = int.Parse(dateParts[2]);
+
+                if (year < 70)
+                {
+                    year += 2000;
+                }
+                else
+                {
+                    year += 1900;
+                }
+
+                dateParts[2] = year.ToString();
+                csv.Records[i][0] = DateTime.Parse(string.Join("-", dateParts)).ToString("MM/dd/yyyy");
+            }
+
+            //add new set of records to the record builder
+            csvBuilder = csvBuilder.Union(csv.Records).ToList();
+            return csvBuilder;
+        }
+
+
+        /// <summary>
+        /// Save the data to file.  If merge is enabled, then keep existing data file and merge new data with overwrite of duplicates.
+        /// </summary>
+        /// <param name="symbol"></param>
+        /// <param name="csv"></param>
+        private static void SaveDataStream(string symbol, List<string[]> csv)
+        {
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, options.DataFolder, $"{symbol}.csv");
+
+            List<string[]> writeData = null;
+
+            if (options.Merge && File.Exists(path))
+            {
+                List<string[]> fileData = null;
+
+                //merge the data stream into the existing data - overriding any old data.
+                using (TextReader reader = File.OpenText(path))
+                {
+                    using (CachedCsvReader oldData = new CachedCsvReader(reader, false, ','))
+                    {
+                        oldData.ReadToEnd();
+                        fileData = oldData.Records.ToList();
+                    }
+                }
+
+                CsvDateComparer csvDateComparer = new CsvDateComparer();
+
+                //use comparer on the first element of each record (date) to replace old records.
+                writeData =
+                    fileData
+                        .Except(csv, csvDateComparer)
+                        .Union(csv)
+                        .Where(s => s.Length > 0)
+                        .OrderBy(s => DateTime.Parse(s[0]))
+                        .ToList();
+            }
+            else
+            {
+                //save the new data and discard any existing data.
+                writeData = csv
+                        .OrderBy(s => DateTime.Parse(s[0]))
+                        .ToList();
+            }
+
+            if (writeData != null)
+            {
+                //write the data to file
+                File.WriteAllLines(path, writeData.Select(r => DateTime.Parse(r[0]).ToString("MM/dd/yyy,") + string.Join(",", r.Skip(1))));
+            }
+        }
+
+        private static Uri BuildUrl(string symbol, DateTime endDate, DateTime beginDate)
+        {
+            //Format: http://www.google.com/finance/historical?q=AAPL&startdate=01-01-1980&enddate=04-01-2017&output=csv
+
+            return new Uri($@"http://www.google.com/finance/historical?q={symbol}&startdate={beginDate.ToString("MM-dd-yyyy")}&enddate={endDate.ToString("MM-dd-yyyy")}&output=csv");
+        }
 
         static void Main(string[] args)
         {
@@ -209,6 +280,7 @@ namespace GooglePriceDownloader
             if (options.Threads == 1)
             {
                 DoWorkSingleThreaded(symbols, yahooDownloader);
+
             }
             else
             {

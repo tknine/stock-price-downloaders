@@ -9,15 +9,35 @@ using System.IO;
 using System.Threading;
 using CommandLine;
 using LumenWorks.Framework.IO.Csv;
+using System.Collections;
 
 namespace YahooPriceDownloader
 {
-    class Program
+    public class YahooDailyHistoricalDownloader
     {
-        private static SemaphoreSlim semaphore;
-        private static Options options;
+        private SemaphoreSlim semaphore;
+        private Options options;
 
-        private static Action<string> yahooDownloader = (string symbol) =>
+
+        /// <summary>
+        /// Provide date comparer for the data from files or from server.  Assumes date is in first index.
+        /// </summary>
+        private class CsvDateComparer : IEqualityComparer<string[]>
+        {
+
+            public bool Equals(string[] x, string[] y)
+            {
+                return x[0] == y[0];
+            }
+
+            public int GetHashCode(string[] obj)
+            {
+                return obj[0].GetHashCode();
+            }
+        }
+
+
+        public void Downloader(string symbol)
         {
 
             Console.WriteLine($"Downloading: {symbol}");
@@ -27,50 +47,23 @@ namespace YahooPriceDownloader
             {
                 semaphore.Wait();
             }
-            
-
-            var wc = new WebClient();
 
             try
             {
+                var wc = new WebClient();
+                var url = BuildUrl(symbol);
+
                 //download the data for the specified date range.
-                var data = wc.DownloadString(new Uri($@"https://ichart.finance.yahoo.com/table.csv"
-                    + $"?d={options.EndDate.Month - 1}"
-                    + $"&e={options.EndDate.Day}"
-                    + $"&f={options.EndDate.Year}"
-                    + $"&g=d"
-                    + $"&a={options.BeginDate.Month - 1}"
-                    + $"&b={options.BeginDate.Day}"
-                    + $"&c={options.BeginDate.Year}"
-                    + $"&ignore=.csv&s={symbol}"));
+                var data = wc.DownloadString(url);
 
                 //parse the download and reverse the records to date ascending order
                 //The csv reader expects the input to be a stream, so use a extension method
                 //which will turn the download string into a StreamReader on a MemoryStream
                 using (var csv = new CachedCsvReader(data.ToStreamReader(), true))
                 {
-                    csv.ReadToEnd();
+                    ReadDataStream(csv);
 
-                    if (options.DoSort)
-                    {
-                        csv.Records.Reverse();
-                    }
-                    
-                    if (options.BackAdjust)
-                    {
-                        for (var i=0; i < csv.Records.Count; i++)
-                        {
-                            var adjustedClose = double.Parse(csv.Records[i][6]);
-                            var ratio = adjustedClose / double.Parse(csv.Records[i][4]);
-                            csv.Records[i][1] = (ratio * double.Parse(csv.Records[i][1])).ToString();
-                            csv.Records[i][2] = (ratio * double.Parse(csv.Records[i][2])).ToString();
-                            csv.Records[i][3] = (ratio * double.Parse(csv.Records[i][3])).ToString();
-                            csv.Records[i][4] = (ratio * double.Parse(csv.Records[i][4])).ToString();
-                        }
-                    }
-
-                    //output all the lines of the download using a Join of the fields sub-array to write out each line.
-                    File.WriteAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, options.DataFolder, $"{symbol}.csv"), csv.Records.Select(r => string.Join(",", r)));
+                    SaveDataStream(symbol, csv.Records.ToList());
                 }
 
                 Console.WriteLine($"Completed: {symbol}");
@@ -87,33 +80,133 @@ namespace YahooPriceDownloader
                     semaphore.Release();
                 }
             }
-        };
+        }
 
-        static void Main(string[] args)
+        private Uri BuildUrl(string symbol)
         {
-            ParserResult<Options> result;
-            bool isValidOptions = true;
+            //download the data for the specified date range.
+            return new Uri(
+                $@"https://ichart.finance.yahoo.com/table.csv"
+                    + $"?d={options.EndDate.Month - 1}"
+                    + $"&e={options.EndDate.Day}"
+                    + $"&f={options.EndDate.Year}"
+                    + $"&g=d"
+                    + $"&a={options.BeginDate.Month - 1}"
+                    + $"&b={options.BeginDate.Day}"
+                    + $"&c={options.BeginDate.Year}"
+                    + $"&ignore=.csv&s={symbol}");
+        }
 
-            //map the CommandLine to the options object
-            result = CommandLine.Parser.Default.ParseArguments<Options>(args);
+        /// <summary>
+        /// Save the data to file.  If merge is enabled, then keep existing data file and merge new data with overwrite of duplicates.
+        /// </summary>
+        /// <param name="symbol"></param>
+        /// <param name="csv"></param>
+        private void SaveDataStream(string symbol, List<string[]> csv)
+        {
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, options.DataFolder, $"{symbol}.csv");
 
-            ParserResult<Options>  errorResult = result.WithNotParsed<Options>((IEnumerable<Error> errors) => {
-                foreach(var error in errors)
-                {
-                    Console.WriteLine(error);
-                }
-                isValidOptions = false;
-            });
+            List<string[]> writeData = null;
 
-            //there were errors in the options so exit
-            if (!isValidOptions)
+            if (options.Merge && File.Exists(path))
             {
-                Console.WriteLine("Invalid options specified.  Process terminated.");
-                Console.ReadKey();
-                return;
+                List<string[]> fileData = null;
+
+                //merge the data stream into the existing data - overriding any old data.
+                using (TextReader reader = File.OpenText(path))
+                {
+                    using (CachedCsvReader oldData = new CachedCsvReader(reader, false, ','))
+                    {
+                        oldData.ReadToEnd();
+                        fileData = oldData.Records.ToList();
+                    }
+                }
+
+                CsvDateComparer csvDateComparer = new CsvDateComparer();
+
+                //use comparer on the first element of each record (date) to replace old records.
+                writeData =
+                    fileData
+                        .Except(csv, csvDateComparer)
+                        .Union(csv)
+                        .Where(s => s.Length > 0)
+                        .OrderBy(s => DateTime.Parse(s[0]))
+                        .ToList();
+            }
+            else
+            {
+                //save the new data and discard any existing data.
+                writeData = csv
+                        .OrderBy(s => DateTime.Parse(s[0]))
+                        .ToList();
             }
 
-            options = result.MapResult((Options opts) => opts, null);
+            if (writeData != null)
+            {
+                //write the data to file
+                File.WriteAllLines(path, writeData.Select(r => DateTime.Parse(r[0]).ToString("MM/dd/yyy,") + string.Join(",", r.Skip(1))));
+            }
+        }
+
+        private void ReadDataStream(CachedCsvReader csv)
+        {
+            csv.ReadToEnd();
+
+            if (options.DoSort)
+            {
+                csv.Records.Reverse();
+            }
+
+            if (options.BackAdjust)
+            {
+                for (var i = 0; i < csv.Records.Count; i++)
+                {
+                    var adjustedClose = double.Parse(csv.Records[i][6]);
+                    var ratio = adjustedClose / double.Parse(csv.Records[i][4]);
+                    csv.Records[i][1] = (ratio * double.Parse(csv.Records[i][1])).ToString();
+                    csv.Records[i][2] = (ratio * double.Parse(csv.Records[i][2])).ToString();
+                    csv.Records[i][3] = (ratio * double.Parse(csv.Records[i][3])).ToString();
+                    csv.Records[i][4] = (ratio * double.Parse(csv.Records[i][4])).ToString();
+                }
+            }
+        }
+
+        public void DoWorkSingleThreaded(List<string> symbols, Action<string> downloader)
+        {
+            for (var i = 0; i < symbols.Count; i++)
+            {
+                var symbolTemp = symbols[i];
+
+                downloader(symbolTemp);
+            }
+        }
+
+        public void DoWorkMultiThreaded(List<string> symbols, Action<string> downloader)
+        {
+            Task[] tasks = new Task[symbols.Count];
+
+            for (var i = 0; i < symbols.Count; i++)
+            {
+                var symbolTemp = symbols[i];
+
+                tasks[i] = Task.Run(() => downloader(symbolTemp));
+            }
+
+            semaphore.Release(options.Threads);
+
+            //semaphore.Release(3);
+
+            Task.WaitAll(tasks);
+        }
+
+        public YahooDailyHistoricalDownloader(Options options)
+        {
+            this.options = options;
+        }
+
+        public void Start()
+        {
+
 
             if (options.BackAdjust)
             {
@@ -124,7 +217,7 @@ namespace YahooPriceDownloader
                     return;
                 }
             }
-            
+
 
             //create the data directory
             Directory.CreateDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, options.DataFolder));
@@ -144,13 +237,13 @@ namespace YahooPriceDownloader
             //start the download with either a a single thread (current thread) or multi-threaded
             if (options.Threads == 1)
             {
-                DoWorkSingleThreaded(symbols, yahooDownloader);
+                DoWorkSingleThreaded(symbols, Downloader);
             }
             else
             {
                 semaphore = new SemaphoreSlim(options.Threads);
 
-                DoWorkMultiThreaded(symbols, yahooDownloader);
+                DoWorkMultiThreaded(symbols, Downloader);
             }
 
             //done
@@ -158,35 +251,35 @@ namespace YahooPriceDownloader
             Console.ReadKey();
         }
 
-        public static void DoWorkSingleThreaded(List<string> symbols, Action<string> downloader)
+
+        static void Main(string[] args)
         {
+            ParserResult<Options> result;
+            bool isValidOptions = true;
 
-            for (var i = 0; i < symbols.Count; i++)
+            //map the CommandLine to the options object
+            result = CommandLine.Parser.Default.ParseArguments<Options>(args);
+
+            ParserResult<Options> errorResult = result.WithNotParsed<Options>((IEnumerable<Error> errors) => {
+                foreach (var error in errors)
+                {
+                    Console.WriteLine(error);
+                }
+                isValidOptions = false;
+            });
+
+            //there were errors in the options so exit
+            if (!isValidOptions)
             {
-                var symbolTemp = symbols[i];
-
-                downloader(symbolTemp);
-            }
-        }
-
-        public static void DoWorkMultiThreaded(List<string> symbols, Action<string> downloader)
-        {
-
-            Task[] tasks = new Task[symbols.Count];
-
-            for (var i = 0; i < symbols.Count; i++)
-            {
-                var symbolTemp = symbols[i];
-
-                tasks[i] = Task.Run(() => downloader(symbolTemp));
+                Console.WriteLine("Invalid options specified.  Process terminated.");
+                Console.ReadKey();
+                return;
             }
 
-            semaphore.Release(options.Threads);
-            
-            //semaphore.Release(3);
+            var options = result.MapResult((Options opts) => opts, null);
 
-            Task.WaitAll(tasks);
+            YahooDailyHistoricalDownloader downloader = new YahooDailyHistoricalDownloader(options);
+            downloader.Start();
         }
-
     }
 }

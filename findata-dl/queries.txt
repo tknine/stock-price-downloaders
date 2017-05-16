@@ -1,0 +1,9 @@
+﻿google -e "5/30/2017" -b "1/1/1970"  -s "AA" -m
+google -e "5/30/2017" -b "1/1/1970"  -f "symbols\us-stocks.txt" -m
+
+google --help
+
+yahoo -e "5/30/2017" -b "1/1/2010"  -s "AAPL" -m
+yahoo -e "5/30/2017" -b "1/1/1970"  -f "symbols\us-stocks.txt" -m
+
+yahoo --help

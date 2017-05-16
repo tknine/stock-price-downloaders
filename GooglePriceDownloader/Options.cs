@@ -40,6 +40,8 @@ namespace GooglePriceDownloader
         [Option('t', "threads", Required = false, HelpText = "Number of threads for downloading.", Default = 1)]
         public int Threads { get; set; }
 
+        [Option('m', "merge", Required = false, HelpText = "Merge new data with existing data if data file already exists.  New data overrides existing data.", Default = true)]
+        public bool Merge { get; set; }
 
         public Options()
         {
