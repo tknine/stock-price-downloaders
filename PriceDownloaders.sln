@@ -3,14 +3,10 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26403.7
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YahooPriceDownloader", "YahooPriceDownloader\YahooPriceDownloader.csproj", "{02569E3E-9F07-457D-8102-FB90B9A260C8}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{AB9CECA1-4397-432D-A540-0F635978C85F}"
 	ProjectSection(SolutionItems) = preProject
 		README.md = README.md
 	EndProjectSection
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GooglePriceDownloader", "GooglePriceDownloader\GooglePriceDownloader.csproj", "{6D290D5E-6CB7-4C08-A923-2477B4D34850}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "findata-dl", "findata-dl\findata-dl.csproj", "{AD99A1B0-D459-4915-8494-BCC87E77E635}"
 EndProject
@@ -20,14 +16,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{02569E3E-9F07-457D-8102-FB90B9A260C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{02569E3E-9F07-457D-8102-FB90B9A260C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{02569E3E-9F07-457D-8102-FB90B9A260C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{02569E3E-9F07-457D-8102-FB90B9A260C8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6D290D5E-6CB7-4C08-A923-2477B4D34850}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6D290D5E-6CB7-4C08-A923-2477B4D34850}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6D290D5E-6CB7-4C08-A923-2477B4D34850}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6D290D5E-6CB7-4C08-A923-2477B4D34850}.Release|Any CPU.Build.0 = Release|Any CPU
 		{AD99A1B0-D459-4915-8494-BCC87E77E635}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{AD99A1B0-D459-4915-8494-BCC87E77E635}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AD99A1B0-D459-4915-8494-BCC87E77E635}.Release|Any CPU.ActiveCfg = Release|Any CPU
